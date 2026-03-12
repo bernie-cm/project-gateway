@@ -1,0 +1,29 @@
+# Terraform
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+*.tfvars
+!*.tfvars.example
+
+# Ansible
+*.retry
+
+# Secrets - NEVER commit these
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+*.truststore
+vault-password.txt
+
+# OS
+.DS_Store
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
