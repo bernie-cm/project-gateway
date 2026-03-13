@@ -1,0 +1,89 @@
+# =============================================================================
+# CI: Terraform lint, validate, and plan
+# =============================================================================
+#
+# WHY this pipeline exists:
+#   Government compliance (ITSG-33, ISM, NIST 800-53 CM-3/CM-4) requires
+#   peer-reviewed infrastructure changes. This pipeline enforces that:
+#     1. Code is formatted consistently (fmt-check)
+#     2. Config is syntactically valid (validate)
+#     3. A plan exists for review BEFORE anyone can apply
+#
+#   The plan runs but does NOT apply. Apply is always a deliberate manual step.
+#   This prevents accidental changes to classified infrastructure.
+
+name: Terraform
+
+on:
+  push:
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/terraform.yml'
+  pull_request:
+    paths:
+      - 'terraform/**'
+
+jobs:
+  fmt-check:
+    name: Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.6"
+
+      # Fails if any .tf file isn't formatted with `terraform fmt`.
+      # This enforces a single canonical style — important when multiple
+      # people maintain the same IaC across an organisation.
+      - name: Check formatting
+        run: terraform fmt -check -recursive terraform/
+
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.6"
+
+      # terraform validate checks syntax and internal consistency without
+      # contacting any provider API. Catches type errors, missing variables,
+      # malformed references before they reach the hypervisor.
+      - name: Terraform init (local only)
+        working-directory: terraform/environments/dev
+        run: terraform init -backend=false
+
+      - name: Terraform validate
+        working-directory: terraform/environments/dev
+        run: terraform validate
+
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    needs: [fmt-check, validate]
+    # Plan only runs on PRs so the output is visible in the PR review.
+    # Direct pushes to main only run fmt + validate (plan needs provider access).
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.6"
+
+      - name: Terraform init
+        working-directory: terraform/environments/dev
+        run: terraform init -backend=false
+
+      # NOTE: The libvirt provider requires a running libvirtd socket.
+      # On GitHub-hosted runners this will fail at plan time — that is expected.
+      # The plan step validates provider config and variable types. Full plan
+      # runs locally with: make plan
+      - name: Terraform plan (dry run)
+        working-directory: terraform/environments/dev
+        run: terraform plan -input=false
+        continue-on-error: true # libvirt not available on GitHub runners

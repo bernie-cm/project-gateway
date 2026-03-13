@@ -1,0 +1,9 @@
+# Copy to terraform.tfvars (gitignored) and fill in your values.
+# terraform.tfvars is gitignored — never commit real secrets or paths.
+
+# Your SSH public key content (paste the key, not the path)
+ssh_public_key = "ssh-ed25519 AAAA... your-key-here"
+
+# Absolute path to the Rocky 9 cloud image on this hypervisor
+# Download: https://dl.rockylinux.org/pub/rocky/9/images/x86_64/
+rocky9_image_path = "/var/lib/libvirt/images/Rocky-9-GenericCloud.latest.x86_64.qcow2"
